@@ -6,6 +6,7 @@
 	icon = 'icons/obj/projectiles.dmi'
 	icon_state = "bullet"
 	density = 1
+	can_block_movement = FALSE	//Projectiles don't recieve collisions usually, they move into other things
 	unacidable = 1
 	anchored = 1 //There's a reason this is here, Mport. God fucking damn it -Agouri. Find&Fix by Pete. The reason this is here is to stop the curving of emitter shots.
 	pass_flags = PASS_FLAG_TABLE
@@ -163,7 +164,8 @@
 
 //called when the projectile stops flying because it collided with something
 /obj/item/projectile/proc/on_impact(var/atom/A)
-	impact_effect(effect_transform)		// generate impact effect
+	if (effect_transform)	//May be null when shooting something in the same tile
+		impact_effect(effect_transform)		// generate impact effect
 	if(damage && damage_type == BURN)
 		var/turf/T = get_turf(A)
 		if(T)

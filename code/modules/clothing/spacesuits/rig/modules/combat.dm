@@ -21,6 +21,8 @@
 	origin_tech = list(TECH_COMBAT = 2, TECH_MAGNET = 3, TECH_ENGINEERING = 5)
 	process_with_rig = FALSE
 
+	base_type = /obj/item/rig_module/device/flash
+
 /obj/item/rig_module/device/flash/advanced
 	name = "advanced mounted flash"
 	device_type = /obj/item/device/flash/advanced
@@ -260,7 +262,7 @@
 /obj/item/rig_module/fabricator
 
 	name = "matter fabricator"
-	desc = "A self-contained microfactory system for hardsuit integration."
+	desc = "A self-contained microfactory system for RIG integration."
 	selectable = 1
 	usable = 1
 	use_power_cost = 5 KILOWATTS

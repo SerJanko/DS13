@@ -9,18 +9,18 @@
 /obj/item/ai_verbs
 	name = "AI verb holder"
 
-/obj/item/ai_verbs/verb/hardsuit_interface()
-	set category = "Hardsuit"
-	set name = "Open Hardsuit Interface"
+/obj/item/ai_verbs/verb/RIG_interface()
+	set category = "RIG"
+	set name = "Open RIG Interface"
 	set src in usr
 
 	if(!usr.loc || !usr.loc.loc || !istype(usr.loc.loc, /obj/item/rig_module))
-		to_chat(usr, "You are not loaded into a hardsuit.")
+		to_chat(usr, "You are not loaded into a RIG.")
 		return
 
 	var/obj/item/rig_module/module = usr.loc.loc
 	if(!module.holder)
-		to_chat(usr, "Your module is not installed in a hardsuit.")
+		to_chat(usr, "Your module is not installed in a RIG.")
 		return
 
 	module.holder.ui_interact(usr, nano_state = GLOB.contained_state)
@@ -28,7 +28,7 @@
 /obj/item/rig_module/ai_container
 
 	name = "IIS module"
-	desc = "An integrated intelligence system module suitable for most hardsuits."
+	desc = "An integrated intelligence system module suitable for most RIGs."
 	icon_state = "IIS"
 	toggleable = 1
 	usable = 1
@@ -57,13 +57,6 @@
 			integrated_ai.get_rig_stats = 1
 		else
 			integrated_ai.get_rig_stats = 0
-
-/mob/living/Stat()
-	. = ..()
-	if(. && get_rig_stats)
-		var/obj/item/weapon/rig/rig = get_rig()
-		if(rig)
-			SetupStat(rig)
 
 /obj/item/rig_module/ai_container/proc/update_verb_holder()
 	if(!verb_holder)
@@ -350,131 +343,7 @@
 	var/mob/living/M = holder.wearer
 	M.digitalcamo = max(0,(M.digitalcamo-1))
 
-/obj/item/rig_module/power_sink
 
-	name = "hardsuit power sink"
-	desc = "An heavy-duty power sink."
-	icon_state = "powersink"
-	toggleable = 1
-	activates_on_touch = 1
-	disruptive = 0
-
-	activate_string = "Enable Power Sink"
-	deactivate_string = "Disable Power Sink"
-
-	interface_name = "niling d-sink"
-	interface_desc = "Colloquially known as a power siphon, this module drains power through the suit hands into the suit battery."
-
-	origin_tech = list(TECH_POWER = 6, TECH_ENGINEERING = 6)
-	var/atom/interfaced_with // Currently draining power from this device.
-	var/total_power_drained = 0
-	var/drain_loc
-	var/max_draining_rate = 120 KILOWATTS // The same as unupgraded cyborg recharger.
-
-/obj/item/rig_module/power_sink/deactivate()
-
-	if(interfaced_with)
-		if(holder && holder.wearer)
-			to_chat(holder.wearer, "<span class = 'warning'>Your power sink retracts as the module deactivates.</span>")
-		drain_complete()
-	interfaced_with = null
-	total_power_drained = 0
-	return ..()
-
-/obj/item/rig_module/power_sink/activate()
-	interfaced_with = null
-	total_power_drained = 0
-	return ..()
-
-/obj/item/rig_module/power_sink/engage(atom/target)
-
-	if(!..())
-		return 0
-
-	//Target wasn't supplied or we're already draining.
-	if(interfaced_with)
-		return 0
-
-	if(!target)
-		return 1
-
-	// Are we close enough?
-	var/mob/living/carbon/human/H = holder.wearer
-	if(!target.Adjacent(H))
-		return 0
-
-	// Is it a valid power source?
-	if(target.drain_power(1) <= 0)
-		return 0
-
-	to_chat(H, "<span class = 'danger'>You begin draining power from [target]!</span>")
-	interfaced_with = target
-	drain_loc = interfaced_with.loc
-
-	holder.spark_system.start()
-	playsound(H.loc, 'sound/effects/sparks2.ogg', 50, 1)
-
-	return 1
-
-/obj/item/rig_module/power_sink/accepts_item(var/obj/item/input_device, var/mob/living/user)
-	var/can_drain = input_device.drain_power(1)
-	if(can_drain > 0)
-		engage(input_device)
-		return 1
-	return 0
-
-/obj/item/rig_module/power_sink/Process()
-
-	if(!interfaced_with)
-		return ..()
-
-	var/mob/living/carbon/human/H
-	if(holder && holder.wearer)
-		H = holder.wearer
-
-	if(!H || !istype(H))
-		return 0
-
-	holder.spark_system.start()
-	playsound(H.loc, 'sound/effects/sparks2.ogg', 50, 1)
-
-	if(!holder.cell)
-		to_chat(H, "<span class = 'danger'>Your power sink flashes an error; there is no cell in your rig.</span>")
-		drain_complete(H)
-		return
-
-	if(!interfaced_with || !interfaced_with.Adjacent(H) || !(interfaced_with.loc == drain_loc))
-		to_chat(H, "<span class = 'warning'>Your power sink retracts into its casing.</span>")
-		drain_complete(H)
-		return
-
-	if(holder.cell.fully_charged())
-		to_chat(H, "<span class = 'warning'>Your power sink flashes an amber light; your rig cell is full.</span>")
-		drain_complete(H)
-		return
-
-	var/target_drained = interfaced_with.drain_power(0,0,max_draining_rate)
-	if(target_drained <= 0)
-		to_chat(H, "<span class = 'danger'>Your power sink flashes a red light; there is no power left in [interfaced_with].</span>")
-		drain_complete(H)
-		return
-
-	holder.cell.give(target_drained * CELLRATE)
-	total_power_drained += target_drained
-
-	return
-
-/obj/item/rig_module/power_sink/proc/drain_complete(var/mob/living/M)
-
-	if(!interfaced_with)
-		if(M) to_chat(M, "<font color='blue'><b>Total power drained:</b> [round(total_power_drained*CELLRATE)] Wh.</font>")
-	else
-		if(M) to_chat(M, "<font color='blue'><b>Total power drained from [interfaced_with]:</b> [round(total_power_drained*CELLRATE)] Wh.</font>")
-		interfaced_with.drain_power(0,1,0) // Damage the victim.
-
-	drain_loc = null
-	interfaced_with = null
-	total_power_drained = 0
 
 /*
 //Maybe make this use power when active or something
@@ -488,7 +357,7 @@
 	deactivate_string = "Disable active EMP shielding"
 
 	interface_name = "active EMP shielding system"
-	interface_desc = "A highly experimental system that augments the hardsuit's existing EM shielding."
+	interface_desc = "A highly experimental system that augments the RIG's existing EM shielding."
 	var/protection_amount = 20
 
 /obj/item/rig_module/emp_shielding/activate()

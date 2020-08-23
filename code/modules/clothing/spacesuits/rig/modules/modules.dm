@@ -9,11 +9,14 @@
 	var/charges = 0
 
 /obj/item/rig_module
-	name = "hardsuit upgrade"
+	name = "RIG upgrade"
 	desc = "It looks pretty sciency."
 	icon = 'icons/obj/rig_modules.dmi'
 	icon_state = "module"
 	matter = list(MATERIAL_STEEL = 20000, "plastic" = 30000, MATERIAL_GLASS = 5000)
+
+	//If set, no other module with a matching base type can be installed
+	var/base_type = null
 
 	var/damage = 0
 	var/obj/item/weapon/rig/holder
@@ -46,15 +49,27 @@
 	var/suit_overlay_active             // If set, drawn over icon and mob when effect is active.
 	var/suit_overlay_inactive           // As above, inactive.
 	var/suit_overlay_used               // As above, when engaged.
+	var/suit_overlay_layer	=	HUMAN_LAYER
+	var/suit_overlay_plane	=	HUMAN_PLANE
+	var/suit_overlay_flags = 0
 
 	//Display fluff
-	var/interface_name = "hardsuit upgrade"
-	var/interface_desc = "A generic hardsuit upgrade."
+	var/interface_name
+	var/interface_desc = ""
 	var/engage_string = "Engage"
 	var/activate_string = "Activate"
 	var/deactivate_string = "Deactivate"
 
 	var/list/datum/stat_rig_module/stat_modules = new()
+
+/obj/item/rig_module/Initialize()
+	.=..()
+	if (!interface_name)
+		interface_name = name
+
+	if (!interface_desc)
+		interface_desc = desc
+
 
 /obj/item/rig_module/examine()
 	. = ..()
@@ -130,11 +145,19 @@
 
 		charges = processed_charges
 
-	stat_modules +=	new /datum/stat_rig_module/activate(src)
-	stat_modules +=	new /datum/stat_rig_module/deactivate(src)
-	stat_modules +=	new /datum/stat_rig_module/engage(src)
-	stat_modules +=	new /datum/stat_rig_module/select(src)
-	stat_modules +=	new /datum/stat_rig_module/charge(src)
+		if (charges.len > 1)
+			stat_modules +=	new /datum/stat_rig_module/charge(src)
+
+
+	if (toggleable)
+		stat_modules +=	new /datum/stat_rig_module/activate(src)
+		stat_modules +=	new /datum/stat_rig_module/deactivate(src)
+
+	if (usable)
+		stat_modules +=	new /datum/stat_rig_module/engage(src)
+
+	if (selectable)
+		stat_modules +=	new /datum/stat_rig_module/select(src)
 
 /obj/item/rig_module/Destroy()
 	deactivate()
@@ -143,7 +166,40 @@
 	. = ..()
 
 
-/obj/item/rig_module/proc/can_install(var/obj/item/weapon/rig/rig, var/mob/user, var/feedback = FALSE)
+/obj/item/rig_module/proc/can_install(var/obj/item/weapon/rig/rig, var/mob/user, var/feedback = FALSE, var/check_conflict = TRUE)
+	if (!redundant && check_conflict)
+		for (var/obj/item/rig_module/RM in rig.installed_modules)
+			//Exact duplicates not allowed
+			if (type == RM.type)
+				return FALSE
+
+			//Matching base types count as a duplicate, if non null
+			if (base_type && base_type == RM.base_type)
+				return FALSE
+	return TRUE
+
+//Returns any existing module which blocks the installation of this one
+/obj/item/rig_module/proc/get_conflicting(var/obj/item/weapon/rig/rig)
+	if (!redundant)
+		for (var/obj/item/rig_module/RM in rig.installed_modules)
+			//Exact duplicates not allowed
+			if (type == RM.type)
+				return RM
+
+			//Matching base types count as a duplicate, if non null
+			if (base_type && base_type == RM.base_type)
+				return RM
+
+	return null
+
+
+/*
+	Called to inform this module that its position in rig is about to be replaced with successor.
+	Override this to do any prep work for replacement, like storages transferring contents
+
+	Return false to block the replacement and deny the installation of the sucessor
+*/
+/obj/item/rig_module/proc/pre_replace(var/obj/item/weapon/rig/rig, var/obj/item/rig_module/successor)
 	return TRUE
 
 // Called when the module is installed into a suit.
@@ -221,12 +277,12 @@
 	return 1
 
 // Called when the module is uninstalled from a suit.
-/obj/item/rig_module/proc/uninstalled()
+/obj/item/rig_module/proc/uninstalled(var/obj/item/weapon/rig/former, var/mob/living/user)
 	deactivate()
 	holder = null
 	return
 
-// Called by the hardsuit each rig process tick.
+// Called by the RIG
 /obj/item/rig_module/Process()
 	if(active)
 		return active_power_cost
@@ -240,21 +296,17 @@
 
 /mob/living/carbon/human/Stat()
 	. = ..()
+	if(. && wearing_rig && statpanel("RIG Modules"))
 
-	if(. && istype(back,/obj/item/weapon/rig))
-		var/obj/item/weapon/rig/R = back
-		SetupStat(R)
-
-/mob/proc/SetupStat(var/obj/item/weapon/rig/R)
-	if(R && !R.canremove && R.installed_modules.len && statpanel("Hardsuit Modules"))
-		var/cell_status = R.cell ? "[R.cell.charge]/[R.cell.maxcharge]" : "ERROR"
-		stat("Suit charge", cell_status)
-		for(var/obj/item/rig_module/module in R.installed_modules)
-		{
-			for(var/datum/stat_rig_module/SRM in module.stat_modules)
-				if(SRM.CanUse())
-					stat(SRM.module.interface_name,SRM)
-		}
+		if(!wearing_rig.canremove && wearing_rig.installed_modules.len)
+			var/cell_status = wearing_rig.cell ? "[wearing_rig.cell.charge]/[wearing_rig.cell.maxcharge]" : "ERROR"
+			stat("Suit charge", cell_status)
+			for(var/obj/item/rig_module/module in wearing_rig.installed_modules)
+			{
+				for(var/datum/stat_rig_module/SRM as anything in module.stat_modules)
+					if(SRM.CanUse())
+						stat(SRM.module.interface_name,SRM)
+			}
 
 /datum/stat_rig_module
 	parent_type = /atom/movable

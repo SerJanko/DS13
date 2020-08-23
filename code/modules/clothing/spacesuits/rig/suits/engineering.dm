@@ -18,14 +18,17 @@
 		/obj/item/rig_module/grenade_launcher/light,	//These grenades are harmless illumination
 		/obj/item/rig_module/maneuvering_jets,
 		/obj/item/rig_module/vision/meson,
-		/obj/item/rig_module/kinesis
+		/obj/item/rig_module/kinesis,
+		/obj/item/rig_module/hotswap
 		)
 
 /obj/item/clothing/suit/space/rig/engineering
 	name = "suit"
 
 /obj/item/clothing/gloves/rig/engineering
-	name = "gloves"
+	name = "insulated gloves"
+	desc = "These gloves will protect the wearer from electric shocks."
+	siemens_coefficient = 0
 
 /obj/item/clothing/shoes/magboots/rig/engineering
 	name = "shoes"
